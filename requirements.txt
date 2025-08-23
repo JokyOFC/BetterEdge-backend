@@ -2,10 +2,12 @@ uvicorn[standard]
 psycopg2-binary
 passlib[bcrypt]
 psycopg2-binary
+pytest-asyncio
 python-dotenv
 sqlalchemy
 yfinance
 pydantic
+asyncpg
 fastapi
 alembic 
 pytest
