@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
     String,
@@ -57,7 +57,7 @@ class Advisor(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
 
 
@@ -71,8 +71,8 @@ class Client(Base):
     phone = Column(String, nullable=True)
     advisor_id = Column(UUID(as_uuid=True), nullable=True)
     risk_profile = Column(String(20), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     advisor_id = Column(
         UUID(as_uuid=True),
         ForeignKey("advisors.id", ondelete="SET NULL"),
@@ -87,12 +87,14 @@ class Asset(Base):
     name = Column(String, nullable=True)
     asset_type = Column(Enum(AssetTypeEnum), nullable=False)
     currency = Column(String(3), default="BRL")
+    exchange = Column(String(50), nullable=True)
     default_fee_rate = Column(Numeric(10, 6), default=0.0)
     has_dividend = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-
+# Remember about the buy date (new input)
+# created_at it is a column there can or cannot be the buy date
 class Allocation(Base):
     __tablename__ = "allocations"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -105,12 +107,9 @@ class Allocation(Base):
     quantity = Column(Numeric(28, 8), nullable=False, default=0)
     avg_price = Column(Numeric(18, 6), nullable=False, default=0)
     invested_amount = Column(Numeric(18, 2), nullable=False, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    __table_args__ = (
-        UniqueConstraint("client_id", "asset_id", name="uq_client_asset"),
-    )
+    buy_date = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class DailyReturn(Base):
@@ -126,7 +125,7 @@ class DailyReturn(Base):
     close = Column(Numeric(18, 6), nullable=False)
     volume = Column(Numeric(28, 2))
     adjusted_close = Column(Numeric(18, 6))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (UniqueConstraint("asset_id", "date", name="uq_asset_date"),)
 
@@ -141,13 +140,21 @@ class User(Base):
     )  # senha sempre armazenada com hash
     role = Column(Enum(UserRoleEnum), nullable=False, default=UserRoleEnum.READ_ONLY)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         UniqueConstraint("username", name="uq_username"),
         UniqueConstraint("email", name="uq_email"),
     )
+
+
+class PriceQuote(Base):
+    __tablename__ = "price_quotes"
+    ticker = Column(String(32), primary_key=True)
+    price = Column(Numeric(18, 6))
+    prev_close = Column(Numeric(18, 6))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True)
 
 
 class Log(Base):
@@ -165,4 +172,4 @@ class Log(Base):
     description = Column(Text, nullable=True)  # detalhes da ação
     ip_address = Column(String(45), nullable=True)  # suporta IPv6
     user_agent = Column(String(255), nullable=True)  # navegador/app origem
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

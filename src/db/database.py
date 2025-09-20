@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 DATABASE_URL = settings.DATABASE_URL
 
-engine = create_async_engine(DATABASE_URL, echo=True, future=True)
+engine = create_async_engine(DATABASE_URL, echo=False, future=True)
 async_session = sessionmaker(
     autocommit=False,
     autoflush=False,
@@ -13,7 +13,6 @@ async_session = sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
-
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with async_session() as session:
