@@ -15,7 +15,7 @@ if hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
 DATABASE_URL = settings.DATABASE_URL
 
 base_url = "http://test"
-route = "/alocacoes"
+route = "/ativos"
 
 @pytest_asyncio.fixture
 async def async_session():
@@ -35,67 +35,68 @@ async def async_client(async_session: AsyncSession):
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
-
-async def test_list_allocations(async_client):
-    
-    # search for (asset)
-
+async def test_list_assets(async_client):
     response = await async_client.get(route + "/")
-
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
+    
 
-
-async def test_get_allocations_by_id(async_client):
-    list_alocations = await async_client.get(route + "/")
-    alocation_id = list_alocations.json()[0]["id"]
-
-    response = await async_client.get(route + "/" + alocation_id)
-
+async def test_list_assets_by_id(async_client):
+    list_assets = await async_client.get(f"{route}/")
+    assert list_assets.status_code == 200
+    assets = list_assets.json()
+    assert len(assets) > 0, "Não há assets para testar"
+    
+    asset_id = assets[0]["id"]
+    
+    response = await async_client.get(f"{route}/{asset_id}")
+    
     assert response.status_code == 200
     data = response.json()
-    assert data["id"] == alocation_id
+    assert data["id"] == asset_id
+    
 
-
-async def test_get_allocation_by_client_id(async_client):
-    list_clients = await async_client.get("/clientes/")
-    clients_id = list_clients.json()[0]["id"]
-
-    response = await async_client.get(route + "?client=" + clients_id, follow_redirects=True)
-
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    for allocation in data:
-        assert allocation["client_id"] == clients_id
-
-
-async def test_fake_get_allocations_by_id(async_client):
+async def test_get_asset_not_found(async_client):
     fake_id = str(uuid4())
 
-    response = await async_client.get(route + "/" + fake_id)
+    response = await async_client.get(route + fake_id)
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Not Found"
+    
 
+async def test_get_asset_by_ticker(async_client):
+    list_assets = await async_client.get(f"{route}/")
+    assert list_assets.status_code == 200
+    assets = list_assets.json()
+    assert len(assets) > 0, "Não há assets para testar"
+    
+    ticker_id = assets[0]["ticker"]
+    
+    response = await async_client.get(f"{route}/ticker/{ticker_id}")
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ticker"] == ticker_id
 
-async def test_post_allocation(async_client):
+async def test_post_asset(async_client):
     
-    list_clients = await async_client.get("/clientes/")
-    client_id = list_clients.json()[0]["id"]
-    
-    list_assets = await async_client.get("/ativos/")
-    asset_id = list_assets.json()[0]["id"]
-    
-    payload = {"client_id": client_id, "asset_id": asset_id, "quantity": 50, "avg_price": 25, "invested_amount": 1000}
+    payload = {
+        "ticker": "BPAC11.SA",
+        "name": "Banco BTG Pactual SA Unit",
+        "asset_type": "acao",
+        "currency":"BRL",
+        "default_fee_rate": "46.03", 
+        "has_dividend": True
+    }
     
     response = await async_client.post(route + "/", json=payload)
-    
     new_id = await async_client.get(route + "/")
-    allocations = new_id.json()
+    assets = new_id.json()
     
     assert response.status_code == 201
     data = response.json()
-    last_allocation = allocations[-1]
-    assert data["id"] == last_allocation["id"]
+    last_asset = assets[-1]
+    assert data["id"] == last_asset["id"]
+    
