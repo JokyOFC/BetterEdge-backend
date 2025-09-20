@@ -1,3 +1,13 @@
+"""
+
+    Refactor: change the logic to /service/ location
+    
+    to-do:
+        - make a function to get client and dont repeat code
+        -- maybe the params will be the "where" of the query
+
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,7 +15,7 @@ from sqlalchemy import select
 from uuid import UUID
 from typing import List
 from src.db.database import get_session
-from src.db.models.core_models import Client
+from src.db.models.core_models import Client # Go to services
 
 router = APIRouter()
 
@@ -28,6 +38,14 @@ class ClientOut(ClientBase):
 
 @router.get("/", response_model=List[ClientOut])
 async def list_clients(session: AsyncSession = Depends(get_session)):
+    
+    """
+    
+        maybe filter the select to return just clients
+        there is activated 
+    
+    """
+    
     stmt = select(Client)
     result = await session.execute(stmt)
     clients = result.scalars().all()
@@ -49,7 +67,7 @@ async def create_clients(
     client: ClientBase, session: AsyncSession = Depends(get_session)
 ):
     if not client.name:
-        raise HTTPException(status_code=400, detail="Name is required")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Name is required")
 
     new_client = Client(
         name=client.name,
@@ -66,11 +84,49 @@ async def create_clients(
     return new_client
 
 
-@router.put("/")
-def update_clients():
-    return
+@router.put("/", response_model=ClientOut)
+async def update_clients(
+    client_id: UUID,
+    client: ClientBase,
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = select(Client).where(Client.id.in_(client_id))
+    result = await session.execute(stmt)
+    db_client = result.scalar().first()
+    
+    if not db_client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    update_data = client.model_dump(exclude_unset=True)
+    for key, data in update_data.items():
+        setattr(db_client, key, data)
+        
+    await session.commit()
+    await session.refresh()
+    
+    return db_client
 
 
 @router.delete("/")
-def delete_clients():
+async def delete_clients(
+    client_id: UUID,
+    client: ClientBase,
+    session: AsyncSession = Depends(get_session),
+):
+    stmt = select(client).where(client.id.in_(client_id))
+    result = await session.execute(stmt)
+    db_client = result.scalar().first()
+    
+    if not db_client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    """
+
+        Think about deleting or not the client of db.
+        maybe just disable the client
+        and after some amount of time a task will be create
+        to delete every client there is in X time without beeing activated.
+    
+    """
+    
     return
